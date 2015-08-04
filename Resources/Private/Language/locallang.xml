@@ -23,6 +23,8 @@
 			<label index="view_details">View details</label>
 			<label index="table">Table</label>
 			<label index="description">Description</label>
+			<label index="progress">Progress</label>
+			<label index="status.progress">Progress</label>
 			<label index="priority">Priority</label>
 			<label index="connector">Connector</label>
 			<label index="connector.details">Connector details</label>

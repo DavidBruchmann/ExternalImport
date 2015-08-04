@@ -115,12 +115,16 @@ class Tx_ExternalImport_Domain_Repository_ConfigurationRepository {
 							// NOTE: the priority doesn't matter for non-synchronizable tables
 							$priority = 1000;
 							$description = '';
+                            $rowsPerCycle = FALSE;
 							if (isset($externalConfig['priority'])) {
 								$priority = $externalConfig['priority'];
 							}
 							if (isset($externalConfig['description'])) {
 								$description = $GLOBALS['LANG']->sL($externalConfig['description']);
 							}
+                            if (isset($externalConfig['rowsPerCycle'])) {
+                                $rowsPerCycle = $rowsPerCycle != '' ? intval($externalConfig['rowsPerCycle']) : FALSE;
+                            }
 							if (isset($externalConfig['useColumnIndex'])) {
 								$columnIndex = $externalConfig['useColumnIndex'];
 							} else {
@@ -135,8 +139,13 @@ class Tx_ExternalImport_Domain_Repository_ConfigurationRepository {
 								'columnIndex' => $columnIndex,
 								'priority' => intval($priority),
 								'description' => htmlspecialchars($description),
+								'rowsPerCycle' => $rowsPerCycle,
+								'progress' => $this->getProgress($tableName, $index),
 								'writeAccess' => $hasWriteAccess
 							);
+
+
+
 								// Add Scheduler task information, if any
 							$taskKey = $tableName . '/' . $index;
 							if (isset($tasks[$taskKey])) {
@@ -155,8 +164,7 @@ class Tx_ExternalImport_Domain_Repository_ConfigurationRepository {
 				}
 			}
 		}
-
-			// Return the results
+        // Return the results
 		return $configurations;
 	}
 
@@ -200,5 +208,41 @@ class Tx_ExternalImport_Domain_Repository_ConfigurationRepository {
 		}
 		return $hasGlobalWriteAccess;
 	}
+
+    /**
+     * Get the progress if the current table index tuple from sv service
+     *
+     * @param string $table
+     * @param int $index
+     * @param array $parameters
+     *
+     * @return float|boolean
+     */
+    public function getProgress($table, $index) {
+        $result = FALSE;
+        /** @var $importer tx_externalimport_importer */
+        $importer = t3lib_div::makeInstance('tx_externalimport_importer');
+        $connector = $importer->getConnector($table, $index);
+        if ($connector instanceof Tx_Svconnector_Service_CycleInterface) {
+            foreach ($GLOBALS['TCA'] as $tableName => $sections) {
+                if ($tableName === $table) {
+                    // Check if table has external info
+                    if (isset($sections['ctrl']['external'])) {
+                        // Check if user has read rights on it
+                        // If not, the table is skipped entirely
+                        if ($GLOBALS['BE_USER']->check('tables_select', $tableName)) {
+                            $externalData = $sections['ctrl']['external'];
+                            foreach ($externalData as $indexName => $externalConfig) {
+                                if (intval($indexName) === intval($index)) {
+                                    $result = $connector->getProgress($externalConfig['parameters']);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return $result;
+    }
 }
 ?>

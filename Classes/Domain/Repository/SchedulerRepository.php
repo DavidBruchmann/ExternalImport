@@ -119,12 +119,14 @@ class Tx_ExternalImport_Domain_Repository_SchedulerRepository implements t3lib_S
 			'uid' => $taskObject->getTaskUid(),
 				// Format date as needed for display
 			'nextexecution' => date($this->dateFormat, $taskObject->getExecutionTime()),
+			'nextexecution_tstamp' => $taskObject->getExecutionTime(),
 			'interval' => sprintf($GLOBALS['LANG']->sL('LLL:EXT:Resources/Private/Language/locallang.xml:number_of_seconds'), $interval),
 			'croncmd' => $cronCommand,
 			'frequency' => ($cronCommand == '') ? $interval : $cronCommand,
 				// Format date and time as needed for form input
 			'start_date' => date('m/d/Y', $taskObject->getExecution()->getStart()),
-			'start_time' => date('H:i', $taskObject->getExecution()->getStart())
+			'start_time' => date('H:i', $taskObject->getExecution()->getStart()),
+			'is_running' => $taskObject->isExecutionRunning()
 		);
 		return $taskInformation;
 	}

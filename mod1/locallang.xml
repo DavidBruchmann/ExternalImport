@@ -22,6 +22,7 @@
 			<label index="table">Table</label>
 			<label index="description">Description</label>
 			<label index="priority">Priority</label>
+			<label index="progress_bar">Progress: {0} %</label>
 			<label index="connector">Connector</label>
 			<label index="connector.details">Connector details</label>
 			<label index="data_type">Data type</label>

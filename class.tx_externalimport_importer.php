@@ -286,6 +286,39 @@ class tx_externalimport_importer {
 	}
 
 	/**
+	 * @param	string		$table: name of the table to get the connector for
+	 * @param	integer		$index: index of the conector configuration to use
+	 * @return NULL|tx_svconnector_base
+	 */
+	public function getConnector($table, $index) {
+		$connector = NULL;
+
+		if ($GLOBALS['BE_USER']->check('tables_modify', $table)) {
+			$this->initTCAData($table, $index);
+
+			// Instantiate specific connector service
+			if (empty($this->externalConfig['connector'])) {
+				$this->addMessage(
+					$GLOBALS['LANG']->getLL('no_connector')
+				);
+			} else {
+				$services = t3lib_extMgm::findService('connector', $this->externalConfig['connector']);
+
+				// The service is not available
+				if ($services === FALSE) {
+					$this->addMessage(
+						$GLOBALS['LANG']->getLL('no_service')
+					);
+				} else {
+					/** @var $connector tx_svconnector_base */
+					$connector = t3lib_div::makeInstanceService('connector', $this->externalConfig['connector']);
+				}
+			}
+		}
+		return $connector;
+	}
+
+	/**
 	 * Pre-processes the configured connector parameters.
 	 *
 	 * @param array $parameters List of parameters to process

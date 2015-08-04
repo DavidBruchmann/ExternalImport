@@ -51,13 +51,18 @@ class Tx_ExternalImport_ViewHelpers_Be_ContainerViewHelper extends Tx_Fluid_View
 	 * @param boolean $enableExtJsDebug if TRUE, debug version of ExtJS is loaded. Use this for development only
 	 * @param string $addCssFile Custom CSS file to be loaded
 	 * @param string $addJsFile Custom JavaScript file to be loaded
+	 * @param boolean $loadJQuery whether to load jQuery library. Defaults to FALSE
+	 * @param array $includeCssFiles List of custom CSS file to be loaded
+	 * @param array $includeJsFiles List of custom JavaScript file to be loaded
+	 * @param array $addJsInlineLabels Custom labels to add to JavaScript inline labels
+	 * @param boolean $includeCsh flag for including CSH
 	 * @param string $globalWriteAccess Whether uses has full access ("all"), "partial" access or none (to sync tables)
 	 * @param string $view Name of the current view ("sync" or "nosync")
 	 * @return string
 	 * @see template
 	 * @see t3lib_PageRenderer
 	 */
-	public function render($pageTitle = '', $enableJumpToUrl = TRUE, $enableClickMenu = TRUE, $loadPrototype = TRUE, $loadScriptaculous = FALSE, $scriptaculousModule = '', $loadExtJs = FALSE, $loadExtJsTheme = TRUE, $extJsAdapter = '', $enableExtJsDebug = FALSE, $addCssFile = NULL, $addJsFile = NULL, $globalWriteAccess = 'none', $view = 'sync') {
+	public function render($pageTitle = '', $enableJumpToUrl = TRUE, $enableClickMenu = TRUE, $loadPrototype = TRUE, $loadScriptaculous = FALSE, $scriptaculousModule = '', $loadExtJs = FALSE, $loadExtJsTheme = TRUE, $extJsAdapter = '', $enableExtJsDebug = FALSE, $addCssFile = NULL, $addJsFile = NULL, $loadJQuery = FALSE, $includeCssFiles = NULL, $includeJsFiles = NULL, $addJsInlineLabels = NULL, $includeCsh = TRUE, $globalWriteAccess = 'none', $view = 'sync') {
 		$extensionConfiguration = unserialize($GLOBALS['TYPO3_CONF_VARS']['EXT']['extConf']['external_import']);
 
 		$doc = $this->getDocInstance();
@@ -117,7 +122,13 @@ class Tx_ExternalImport_ViewHelpers_Be_ContainerViewHelper extends Tx_Fluid_View
 			$extJsAdapter,
 			$enableExtJsDebug,
 			$addCssFile,
-			$addJsFile
+			$addJsFile,
+			$loadJQuery,
+			$includeCssFiles,
+			$includeJsFiles,
+			$addJsInlineLabels,
+			$includeCsh
+
 		);
 		return $output;
 	}

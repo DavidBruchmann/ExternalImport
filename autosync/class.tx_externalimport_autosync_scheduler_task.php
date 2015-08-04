@@ -32,7 +32,7 @@
  *
  * $Id$
  */
-class tx_externalimport_autosync_scheduler_Task extends tx_scheduler_Task {
+class tx_externalimport_autosync_scheduler_Task extends tx_scheduler_Task implements tx_scheduler_ProgressProvider {
 	/**
 	 * @var	string	Name of the table to synchronize ("all" for all tables)
 	 */
@@ -115,5 +115,40 @@ class tx_externalimport_autosync_scheduler_Task extends tx_scheduler_Task {
 		}
 		return $info;
 	}
+
+    /**
+     * Gets the progress of a task / tableConfiguratio.
+     *
+     * @param array $tableConfiguration
+     *
+     * @return float Progress of the task as a two decimal precision float. f.e. 44.87
+     */
+    public function getProgress() {
+        $result = 100;
+
+        /** @var $configurationRepository Tx_ExternalImport_Domain_Repository_ConfigurationRepository */
+        $configurationRepository = t3lib_div::makeInstance('Tx_ExternalImport_Domain_Repository_ConfigurationRepository');
+        $result = $configurationRepository->getProgress($this->table, $this->index);
+
+        if ($result === FALSE) {
+            /** @var $schedulerRepository Tx_ExternalImport_Domain_Repository_SchedulerRepository */
+            $schedulerRepository = t3lib_div::makeInstance('Tx_ExternalImport_Domain_Repository_SchedulerRepository');
+            $tasks = $schedulerRepository->fetchAllTasks();
+            $taskKey = $this->table . '/' . $this->index;
+            if (isset($tasks[$taskKey])) {
+                $task = $tasks[$taskKey];
+                // set progressbar to zero if task is running, disabled, has no nextexecution or is late - otherwise set the task to 100%
+                if ($this->isExecutionRunning() || $this->isDisabled() || empty($task['nextexecution_tstamp']) || $task['nextexecution_tstamp'] < $GLOBALS['EXEC_TIME']) {
+                    $result = 0;
+                } else {
+                    $result = 100;
+                }
+            }
+        }
+        return $result;
+    }
+
+
+
 }
 ?>

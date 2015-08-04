@@ -31,6 +31,7 @@ TYPO3.ExternalImport.ConfigurationStore = new Ext.data.DirectStore({
 		{name: 'columnIndex'},
 		{name: 'priority'},
 		{name: 'description'},
+		{name: 'progress'},
 		{name: 'writeAccess'},
 		{name: 'automated'},
 		{name: 'task'}
@@ -51,6 +52,32 @@ TYPO3.ExternalImport.AutosyncColumnTemplate = new Ext.XTemplate(
 			'{[String.format(TYPO3.lang["next_autosync"], values.task.nextexecution, values.task.frequency)]}',
 		'</tpl>',
 	'</div>'
+);
+
+// Template for the rendering of the automated synchronization column
+TYPO3.ExternalImport.ProgressBarTemplate = new Ext.XTemplate(
+	'<tpl if="this.needsProgressbar(progress) == false">',
+		'<div class="nothing">',
+		'</div>',
+	'</tpl>',
+	'<tpl if="this.needsProgressbar(progress)">',
+		'<div class="tx_scheduler_mod1">',
+			'<div class="progress">',
+				'<div class="bar" style="width: {progress}%;">',
+					TYPO3.lang['status.progress'],
+					'<span> {progress} % </span>',
+				'</div>',
+			'</div>',
+		'</div>',
+	'</tpl>',
+	{
+		// XTemplate configuration:
+		disableFormats: true,
+		// member functions:
+		needsProgressbar: function(progress) {
+			return progress !== false;
+		}
+	}
 );
 
 	// Define the grid where all configurations are displayed
@@ -80,9 +107,18 @@ TYPO3.ExternalImport.ConfigurationGrid = new Ext.grid.GridPanel({
 			id: 'description',
 			header: TYPO3.lang['description'],
 			dataIndex: 'description',
-			width: 150,
+			width: 50,
 			sortable: true,
 			tpl: '[{values.index}] {values.description}'
+		},
+		{
+			xtype: 'templatecolumn',
+			id: 'progress',
+			header: TYPO3.lang['progress'],
+			dataIndex: 'progress',
+			width: 100,
+			sortable: true,
+			tpl: TYPO3.ExternalImport.ProgressBarTemplate
 		},
 			// Hide if the view is not of the synchronizable tables
 		{
@@ -158,6 +194,10 @@ TYPO3.ExternalImport.ConfigurationGrid = new Ext.grid.GridPanel({
 									// Remove the loading indicator and restore the action icon
 								cell.removeClass('loading-indicator');
 								Ext.fly(image[0]).show();
+
+								TYPO3.ExternalImport.ConfigurationStore.load({
+									params: {synchronizable : true}
+								});
 							});
 						}
 					},
@@ -279,6 +319,18 @@ TYPO3.ExternalImport.AutosyncBoxTemplate = new Ext.XTemplate(
 		'<tpl if="id != 0">',
 			'<p>{[String.format(TYPO3.lang["next_full_autosync"], values.task.nextexecution, values.task.frequency)]}</p>',
 		'</tpl>',
+	'</tpl>'
+);
+
+// Template for the rendering of the automated synchronization column
+TYPO3.ExternalImport.AutosyncBoxTemplate = new Ext.XTemplate(
+	'<tpl for=".">',
+	'<tpl if="id == 0">',
+	'<p>' + TYPO3.lang['no_full_autosync'] + '</p>',
+	'</tpl>',
+	'<tpl if="id != 0">',
+	'<p>{[String.format(TYPO3.lang["next_full_autosync"], values.task.nextexecution, values.task.frequency)]}</p>',
+	'</tpl>',
 	'</tpl>'
 );
 
