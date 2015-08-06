@@ -99,7 +99,7 @@ TYPO3.ExternalImport.ConfigurationGrid = new Ext.grid.GridPanel({
 			id: 'table',
 			header: TYPO3.lang['table'],
 			dataIndex: 'tableName',
-			width: 150,
+			width: 100,
 			sortable: true
 		},
 		{
@@ -107,7 +107,7 @@ TYPO3.ExternalImport.ConfigurationGrid = new Ext.grid.GridPanel({
 			id: 'description',
 			header: TYPO3.lang['description'],
 			dataIndex: 'description',
-			width: 50,
+			width: 125,
 			sortable: true,
 			tpl: '[{values.index}] {values.description}'
 		},
@@ -116,7 +116,7 @@ TYPO3.ExternalImport.ConfigurationGrid = new Ext.grid.GridPanel({
 			id: 'progress',
 			header: TYPO3.lang['progress'],
 			dataIndex: 'progress',
-			width: 100,
+			width: 75,
 			sortable: true,
 			tpl: TYPO3.ExternalImport.ProgressBarTemplate
 		},
