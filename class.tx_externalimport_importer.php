@@ -132,11 +132,12 @@ class tx_externalimport_importer {
 		} else {
 			// Synchronize all tables at once
 			$allMessages = array();
-			$break = FALSE;
-			foreach ($externalTables as $tables) {
-				foreach ($tables as $tableData) {
+			foreach ($externalTables as $tableKey => $tables) {
+				$break = FALSE;
+				foreach ($tables as $tableDataKey => $tableData) {
 					$progress = $this->getProgressForTable($tableData['table'], $tableData['index']);
-					if (intval($progress) < 100) {
+						// for cycle data imports
+					if (intval($progress) < 100 && $progress !== FALSE) {
 						$this->messages = array(t3lib_FlashMessage::ERROR => array(), t3lib_FlashMessage::WARNING => array(), t3lib_FlashMessage::OK => array()); // Reset error messages array
 						$messages = $this->synchronizeData($tableData['table'], $tableData['index']);
 						$key = $tableData['table'] . '/' . $tableData['index'];
@@ -150,9 +151,6 @@ class tx_externalimport_importer {
 				}
 			}
 		}
-
-
-
 
 			// Return compiled array of messages for all imports
 		return $allMessages;
@@ -1223,6 +1221,7 @@ class tx_externalimport_importer {
 
 					$theID = $existingUids[$externalUid];
 					$tceData[$this->table][$theID] = $theRecord;
+
 					$updatedUids[] = $theID;
 					$updates++;
 				}
