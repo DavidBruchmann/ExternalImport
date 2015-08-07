@@ -14,4 +14,6 @@ t3lib_extMgm::registerExtDirectComponent(
 	'user_ExternalImportExternalImport',
 	'user,group'
 );
+
+$GLOBALS['TYPO3_CONF_VARS']['EXTCONF'][$_EXTKEY]['processParameters'][] = '\Portrino\ExternalImport\Hooks\CycleHook';
 ?>

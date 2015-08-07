@@ -234,6 +234,10 @@ class Tx_ExternalImport_Domain_Repository_ConfigurationRepository {
                             $externalData = $sections['ctrl']['external'];
                             foreach ($externalData as $indexName => $externalConfig) {
                                 if (intval($indexName) === intval($index)) {
+										// generate the rows_per_cycle_identifier from tablename and index -> to prevent that more than one configuration works on a import file
+									if (isset($externalConfig['parameters']['rows_per_cycle'])) {
+										$externalConfig['parameters']['rows_per_cycle_identifier'] = $table . '-' . $index;
+									}
                                     $result = $connector->getProgress($externalConfig['parameters']);
                                 }
                             }

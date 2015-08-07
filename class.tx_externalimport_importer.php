@@ -111,22 +111,48 @@ class tx_externalimport_importer {
 			}
 		}
 
+
 			// Sort tables by priority (lower number is highest priority)
 		ksort($externalTables);
 		if ($this->extConf['debug'] || TYPO3_DLOG) {
 			t3lib_div::devLog($GLOBALS['LANG']->getLL('sync_all'), $this->extKey, 0, $externalTables);
 		}
-
-			// Synchronise all tables
-		$allMessages = array();
-		foreach ($externalTables as $tables) {
-			foreach ($tables as $tableData) {
-				$this->messages = array(t3lib_FlashMessage::ERROR => array(), t3lib_FlashMessage::WARNING => array(), t3lib_FlashMessage::OK => array()); // Reset error messages array
-				$messages = $this->synchronizeData($tableData['table'], $tableData['index']);
-				$key = $tableData['table'] . '/' .$tableData['index'];
-				$allMessages[$key] = $messages;
+			// this means there is no table configuration with rows_per_cycle within all tables
+		if ($this->getProgressForAllTables() === FALSE) {
+				// Synchronize all tables at once
+			$allMessages = array();
+			foreach ($externalTables as $tables) {
+				foreach ($tables as $tableData) {
+					$this->messages = array(t3lib_FlashMessage::ERROR => array(), t3lib_FlashMessage::WARNING => array(), t3lib_FlashMessage::OK => array()); // Reset error messages array
+					$messages = $this->synchronizeData($tableData['table'], $tableData['index']);
+					$key = $tableData['table'] . '/' .$tableData['index'];
+					$allMessages[$key] = $messages;
+				}
+			}
+		} else {
+			// Synchronize all tables at once
+			$allMessages = array();
+			$break = FALSE;
+			foreach ($externalTables as $tables) {
+				foreach ($tables as $tableData) {
+					$progress = $this->getProgressForTable($tableData['table'], $tableData['index']);
+					if (intval($progress) < 100) {
+						$this->messages = array(t3lib_FlashMessage::ERROR => array(), t3lib_FlashMessage::WARNING => array(), t3lib_FlashMessage::OK => array()); // Reset error messages array
+						$messages = $this->synchronizeData($tableData['table'], $tableData['index']);
+						$key = $tableData['table'] . '/' . $tableData['index'];
+						$allMessages[$key] = $messages;
+						$break = TRUE;
+						break;
+					}
+				}
+				if ($break) {
+					break;
+				}
 			}
 		}
+
+
+
 
 			// Return compiled array of messages for all imports
 		return $allMessages;
@@ -1776,6 +1802,61 @@ class tx_externalimport_importer {
 				array()
 			);
 		}
+	}
+
+	/**
+	 * @param string $table
+	 * @param int $index
+	 */
+	public function getProgressForTable($table, $index) {
+		/** @var $configurationRepository Tx_ExternalImport_Domain_Repository_ConfigurationRepository */
+		$configurationRepository = t3lib_div::makeInstance('Tx_ExternalImport_Domain_Repository_ConfigurationRepository');
+		$result = $configurationRepository->getProgress($table, $index);
+		return $result;
+	}
+
+	/**
+	 * @return bool|float FALSE if there are no cycle tables within the set of configured external imports, float is the overall percentage if the progress of all import tasks
+	 */
+	public function getProgressForAllTables() {
+		/** @var $configurationRepository Tx_ExternalImport_Domain_Repository_ConfigurationRepository */
+		$configurationRepository = t3lib_div::makeInstance('Tx_ExternalImport_Domain_Repository_ConfigurationRepository');
+
+		$result = FALSE;
+
+		// Look in the TCA for tables with an "external" control section and a "connector"
+		// Tables without connectors cannot be synchronised
+		$externalTables = array();
+		foreach ($GLOBALS['TCA'] as $tableName => $sections) {
+			if (isset($sections['ctrl']['external'])) {
+				foreach ($sections['ctrl']['external'] as $index => $externalConfig) {
+					if (!empty($externalConfig['connector'])) {
+						// Default priority if not defined, set to very low
+						$priority = 1000;
+						if (isset($externalConfig['priority'])) {
+							$priority = $externalConfig['priority'];
+						}
+						if (!isset($externalTables[$priority])) $externalTables[$priority] = array();
+						$externalTables[$priority][] = array('table' => $tableName, 'index' => $index);
+					}
+				}
+			}
+		}
+		$temp = 0;
+		$tablesWithCycle = 0;
+		foreach ($externalTables as $tables) {
+			foreach ($tables as $tableData) {
+				$progressForTable = $configurationRepository->getProgress($tableData['table'], $tableData['index']);
+				if ($progressForTable !== FALSE) {
+					$temp = $temp + $progressForTable;
+					$tablesWithCycle++;
+				}
+			}
+		}
+		if ($tablesWithCycle > 0) {
+			$result = $temp / $tablesWithCycle;
+		}
+		return $result;
 	}
 }
 
