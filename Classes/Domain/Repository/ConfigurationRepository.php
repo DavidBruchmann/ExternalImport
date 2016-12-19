@@ -14,6 +14,7 @@ namespace Cobweb\ExternalImport\Domain\Repository;
  * The TYPO3 project - inspiring people to share!
  */
 
+use Cobweb\ExternalImport\Importer;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -145,6 +146,7 @@ class ConfigurationRepository
                             // If priority is not defined, set to very low
                             // NOTE: the priority doesn't matter for non-synchronizable tables
                             $priority = 1000;
+                            $rowsPerCycle = FALSE;
                             $description = '';
                             if (isset($externalConfig['priority'])) {
                                 $priority = $externalConfig['priority'];
@@ -157,6 +159,10 @@ class ConfigurationRepository
                             } else {
                                 $columnIndex = $index;
                             }
+                            if (isset($externalConfig['rowsPerCycle'])) {
+                                $rowsPerCycle = $rowsPerCycle != '' ? intval($externalConfig['rowsPerCycle']) : FALSE;
+                            }
+
                             // Store the base configuration
                             $tableConfiguration = array(
                                     'id' => $tableName . '-' . $index,
@@ -166,6 +172,8 @@ class ConfigurationRepository
                                     'columnIndex' => $columnIndex,
                                     'priority' => (int)$priority,
                                     'description' => htmlspecialchars($description),
+                                    'rowsPerCycle' => $rowsPerCycle,
+                                    'progress' => $this->getProgress($tableName, $index),
                                     'writeAccess' => $hasWriteAccess
                             );
                             // Add Scheduler task information, if any
@@ -261,5 +269,47 @@ class ConfigurationRepository
         }
 
         return $configuration;
+    }
+
+
+    /**
+     * Get the progress if the current table index tuple from sv service
+     *
+     * @param string $table
+     * @param int $index
+     * @param array $parameters
+     *
+     * @return float|boolean
+     */
+    public function getProgress($table, $index) {
+            $result = FALSE;
+           /** @var $importer Importer */
+        $importer = GeneralUtility::makeInstance(Importer::class);
+
+            $connector = $importer->getConnector($table, $index);
+         if ($connector instanceof \Cobweb\SvconnectorCsv\Service\ConnectorCsv) {
+                 foreach ($GLOBALS['TCA'] as $tableName => $sections) {
+                         if ($tableName === $table) {
+                                    // Check if table has external info
+                                 if (isset($sections['ctrl']['external'])) {
+                                            // Check if user has read rights on it
+                                            // If not, the table is skipped entirely
+                                         if ($GLOBALS['BE_USER']->check('tables_select', $tableName)) {
+                                                    $externalData = $sections['ctrl']['external'];
+                        foreach ($externalData as $indexName => $externalConfig) {
+                                                         if (intval($indexName) === intval($index)) {
+                                                               // generate the rows_per_cycle_identifier from tablename and index -> to
+                         if (isset($externalConfig['parameters']['rows_per_cycle'])) {
+                                      $externalConfig['parameters']['rows_per_cycle_identifier'] = $table . '-' . $index;
+                          }
+                              $result = $connector->getProgress($externalConfig['parameters']);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return $result;
     }
 }

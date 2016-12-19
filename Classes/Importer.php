@@ -128,9 +128,9 @@ class Importer
     {
         $this->extensionConfiguration = unserialize($GLOBALS['TYPO3_CONF_VARS']['EXT']['extConf'][$this->extensionKey]);
         $this->messages = array(
-                FlashMessage::ERROR => array(),
-                FlashMessage::WARNING => array(),
-                FlashMessage::OK => array()
+            FlashMessage::ERROR => array(),
+            FlashMessage::WARNING => array(),
+            FlashMessage::OK => array()
         );
 
         // Make sure we have a language object
@@ -144,15 +144,16 @@ class Importer
         // Get instances of needed objects
         $this->configurationRepository = GeneralUtility::makeInstance(ConfigurationRepository::class);
         $this->reportingUtility = GeneralUtility::makeInstance(
-                ReportingUtility::class,
-                $this
+            ReportingUtility::class,
+            $this
         );
 
         // Force PHP limit execution time if set
         if (isset($this->extensionConfiguration['timelimit']) && ($this->extensionConfiguration['timelimit'] > -1)) {
             set_time_limit($this->extensionConfiguration['timelimit']);
             if ($this->extensionConfiguration['debug'] || TYPO3_DLOG) {
-                GeneralUtility::devLog($GLOBALS['LANG']->getLL('timelimit'), $this->extensionKey, 0, $this->extensionConfiguration['timelimit']);
+                GeneralUtility::devLog($GLOBALS['LANG']->getLL('timelimit'), $this->extensionKey, 0,
+                    $this->extensionConfiguration['timelimit']);
             }
         }
     }
@@ -193,19 +194,67 @@ class Importer
         }
 
         // Synchronise all tables
-        $allMessages = array();
-        foreach ($externalTables as $tables) {
-            foreach ($tables as $tableData) {
-                $this->messages = array(
+        /*      $allMessages = array();
+            foreach ($externalTables as $tables) {
+                  foreach ($tables as $tableData) {
+                      $this->messages = array(
+                              FlashMessage::ERROR => array(),
+                              FlashMessage::WARNING => array(),
+                              FlashMessage::OK => array()
+                      ); // Reset error messages array
+                      $messages = $this->synchronizeData($tableData['table'], $tableData['index']);
+                      $key = $tableData['table'] . '/' . $tableData['index'];
+                      $allMessages[$key] = $messages;
+                  }
+              }*/
+        // this means there is no table configuration with rows_per_cycle within all tables
+
+        if ($this->getProgressForAllTables() === false) {
+
+            // Synchronize all tables at once
+            $allMessages = array();
+            foreach ($externalTables as $tables) {
+                foreach ($tables as $tableData) {
+
+                    $this->messages = array(
                         FlashMessage::ERROR => array(),
                         FlashMessage::WARNING => array(),
                         FlashMessage::OK => array()
-                ); // Reset error messages array
-                $messages = $this->synchronizeData($tableData['table'], $tableData['index']);
-                $key = $tableData['table'] . '/' . $tableData['index'];
-                $allMessages[$key] = $messages;
+                    ); // Reset error messages array
+                    $messages = $this->synchronizeData($tableData['table'], $tableData['index']);
+                    $key = $tableData['table'] . '/' . $tableData['index'];
+                    $allMessages[$key] = $messages;
+                }
+            }
+        } else {
+            // Synchronize all tables at once
+            $allMessages = array();
+            foreach ($externalTables as $tableKey => $tables) {
+                $break = false;
+                foreach ($tables as $tableDataKey => $tableData) {
+                    $progress = $this->getProgressForTable($tableData['table'], $tableData['index']);
+                    // for cycle data imports
+
+                    if (intval($progress) < 100 && $progress !== false) {
+                        $this->messages = array(
+                            FlashMessage::ERROR => array(),
+                            FlashMessage::WARNING => array(),
+                            FlashMessage::OK => array()
+                        ); // Reset error messages array
+                        $messages = $this->synchronizeData($tableData['table'],
+                            $tableData['index']);
+                        $key = $tableData['table'] . '/' . $tableData['index'];
+                        $allMessages[$key] = $messages;
+                        $break = true;
+                        break;
+                    }
+                }
+                if ($break) {
+                    break;
+                }
             }
         }
+
 
         // Return compiled array of messages for all imports
         return $allMessages;
@@ -224,8 +273,8 @@ class Importer
         $this->index = $index;
         $this->tableTCA = $GLOBALS['TCA'][$this->table];
         $this->externalConfiguration = $this->configurationRepository->findByTableAndIndex(
-                $table,
-                $index
+            $table,
+            $index
         );
         $this->pid = $this->externalConfiguration['pid'];
 
@@ -243,9 +292,9 @@ class Importer
         // but that will not be saved into the database
         if (!empty($this->externalConfiguration['additionalFields'])) {
             $this->additionalFields = GeneralUtility::trimExplode(
-                    ',',
-                    $this->externalConfiguration['additionalFields'],
-                    true
+                ',',
+                $this->externalConfiguration['additionalFields'],
+                true
             );
             $this->numAdditionalFields = count($this->additionalFields);
         }
@@ -271,19 +320,21 @@ class Importer
                 // Instantiate specific connector service
                 if (empty($this->externalConfiguration['connector'])) {
                     $this->addMessage(
-                            $GLOBALS['LANG']->getLL('no_connector')
+                        $GLOBALS['LANG']->getLL('no_connector')
                     );
                 } else {
-                    $services = ExtensionManagementUtility::findService('connector', $this->externalConfiguration['connector']);
+                    $services = ExtensionManagementUtility::findService('connector',
+                        $this->externalConfiguration['connector']);
 
                     // The service is not available
                     if ($services === false) {
                         $this->addMessage(
-                                $GLOBALS['LANG']->getLL('no_service')
+                            $GLOBALS['LANG']->getLL('no_service')
                         );
                     } else {
                         /** @var $connector ConnectorBase */
-                        $connector = GeneralUtility::makeInstanceService('connector', $this->externalConfiguration['connector']);
+                        $connector = GeneralUtility::makeInstanceService('connector',
+                            $this->externalConfiguration['connector']);
 
                         // The service was instantiated, but an error occurred while initiating the connection
                         // The returned value is not a Connector service
@@ -291,21 +342,21 @@ class Importer
                             // If the returned value is an array, we have proper error reporting.
                             if (is_array($connector)) {
                                 $this->addMessage(
-                                        sprintf(
-                                                $GLOBALS['LANG']->getLL('data_not_fetched_with_error'),
-                                                $connector['msg'],
-                                                $connector['nr']
-                                        )
+                                    sprintf(
+                                        $GLOBALS['LANG']->getLL('data_not_fetched_with_error'),
+                                        $connector['msg'],
+                                        $connector['nr']
+                                    )
                                 );
 
-                            // Otherwise display generic error message
+                                // Otherwise display generic error message
                             } else {
                                 $this->addMessage(
-                                        $GLOBALS['LANG']->getLL('data_not_fetched')
+                                    $GLOBALS['LANG']->getLL('data_not_fetched')
                                 );
                             }
 
-                        // The connection is established, get the data
+                            // The connection is established, get the data
                         } else {
                             $data = array();
                             $data = array();
@@ -323,8 +374,8 @@ class Importer
                                     } catch (\Exception $e) {
                                         $abortImportProcess = true;
                                         $this->addMessage(
-                                                sprintf($GLOBALS['LANG']->getLL('data_not_fetched_connector_error'),
-                                                        $e->getMessage())
+                                            sprintf($GLOBALS['LANG']->getLL('data_not_fetched_connector_error'),
+                                                $e->getMessage())
                                         );
                                     }
                                     break;
@@ -335,8 +386,8 @@ class Importer
                                     } catch (\Exception $e) {
                                         $abortImportProcess = true;
                                         $this->addMessage(
-                                                sprintf($GLOBALS['LANG']->getLL('data_not_fetched_connector_error'),
-                                                        $e->getMessage())
+                                            sprintf($GLOBALS['LANG']->getLL('data_not_fetched_connector_error'),
+                                                $e->getMessage())
                                         );
                                     }
                                     break;
@@ -345,7 +396,7 @@ class Importer
                                 default:
                                     $abortImportProcess = true;
                                     $this->addMessage(
-                                            $GLOBALS['LANG']->getLL('data_type_not_defined')
+                                        $GLOBALS['LANG']->getLL('data_type_not_defined')
                                     );
                                     break;
                             }
@@ -353,7 +404,8 @@ class Importer
                             if (!$abortImportProcess) {
                                 if ($this->extensionConfiguration['debug'] || TYPO3_DLOG) {
                                     $debugData = $this->prepareDataSample($data);
-                                    GeneralUtility::devLog('Data received (sample)', $this->extensionKey, -1, $debugData);
+                                    GeneralUtility::devLog('Data received (sample)', $this->extensionKey, -1,
+                                        $debugData);
                                 }
                                 $this->handleData($data);
                             }
@@ -373,7 +425,7 @@ class Importer
         } else {
             $userName = $GLOBALS['BE_USER']->user['username'];
             $this->addMessage(
-                    sprintf($GLOBALS['LANG']->getLL('no_rights_for_sync'), $userName, $table)
+                sprintf($GLOBALS['LANG']->getLL('no_rights_for_sync'), $userName, $table)
             );
         }
 
@@ -400,24 +452,24 @@ class Importer
             foreach ($this->tableTCA['columns'] as $columnName => $columnConfiguration) {
                 if (isset($columnConfiguration['external'][$this->columnIndex])) {
                     $isValid = $columnValidator->isValid(
-                            $table,
-                            $this->externalConfiguration,
-                            $columnConfiguration['external'][$this->columnIndex]
+                        $table,
+                        $this->externalConfiguration,
+                        $columnConfiguration['external'][$this->columnIndex]
                     );
                     // If the column configuration is not valid, issue error message and return false
                     if (!$isValid) {
                         $this->addMessage(
-                                $GLOBALS['LANG']->getLL('configurationError')
+                            $GLOBALS['LANG']->getLL('configurationError')
                         );
                         return false;
                     }
                 }
             }
 
-        // If general configuration is not valid, issue error message and return false
+            // If general configuration is not valid, issue error message and return false
         } else {
             $this->addMessage(
-                    $GLOBALS['LANG']->getLL('configurationError')
+                $GLOBALS['LANG']->getLL('configurationError')
             );
             return false;
         }
@@ -435,7 +487,9 @@ class Importer
         if (is_array($GLOBALS['TYPO3_CONF_VARS']['EXTCONF'][$this->extensionKey]['processParameters'])) {
             foreach ($GLOBALS['TYPO3_CONF_VARS']['EXTCONF'][$this->extensionKey]['processParameters'] as $className) {
                 $preProcessor = GeneralUtility::getUserObj($className);
-                $parameters = $preProcessor->processParameters($parameters, $this);
+                $parameters = $preProcessor->processParameters($parameters,
+                    $this); //hier vllcht aus dem Server das zeug rein
+
             }
         }
         return $parameters;
@@ -654,7 +708,7 @@ class Importer
                             $nodeList = $theRecord->getElementsByTagName($columnData['external'][$this->columnIndex]['field']);
                         } else {
                             $nodeList = $theRecord->getElementsByTagNameNS($columnData['external'][$this->columnIndex]['fieldNS'],
-                                    $columnData['external'][$this->columnIndex]['field']);
+                                $columnData['external'][$this->columnIndex]['field']);
                         }
 
                         if ($nodeList->length > 0) {
@@ -664,17 +718,17 @@ class Importer
                             if (!empty($columnData['external'][$this->columnIndex]['xpath'])) {
                                 try {
                                     $selectedNode = $this->selectNodeWithXpath(
-                                            $xPathObject,
-                                            $columnData['external'][$this->columnIndex]['xpath'],
-                                            $selectedNode
+                                        $xPathObject,
+                                        $columnData['external'][$this->columnIndex]['xpath'],
+                                        $selectedNode
                                     );
                                 } catch (\Exception $e) {
                                     // Nothing to do, data is ignored
                                 }
                             }
                             $theData[$columnName] = $this->extractValueFromNode(
-                                    $selectedNode,
-                                    $columnData['external'][$this->columnIndex]
+                                $selectedNode,
+                                $columnData['external'][$this->columnIndex]
                             );
                         }
 
@@ -684,21 +738,21 @@ class Importer
                         if (!empty($columnData['external'][$this->columnIndex]['xpath'])) {
                             try {
                                 $selectedNode = $this->selectNodeWithXpath(
-                                        $xPathObject,
-                                        $columnData['external'][$this->columnIndex]['xpath'],
-                                        $theRecord
+                                    $xPathObject,
+                                    $columnData['external'][$this->columnIndex]['xpath'],
+                                    $theRecord
                                 );
                                 $theData[$columnName] = $this->extractValueFromNode(
-                                        $selectedNode,
-                                        $columnData['external'][$this->columnIndex]
+                                    $selectedNode,
+                                    $columnData['external'][$this->columnIndex]
                                 );
                             } catch (\Exception $e) {
                                 // Nothing to do, data is ignored
                             }
                         } else {
                             $theData[$columnName] = $this->extractValueFromNode(
-                                    $theRecord,
-                                    $columnData['external'][$this->columnIndex]
+                                $theRecord,
+                                $columnData['external'][$this->columnIndex]
                             );
                         }
                     }
@@ -739,7 +793,7 @@ class Importer
                 $value = $node->attributes->getNamedItem($columnData['attribute'])->nodeValue;
             } else {
                 $value = $node->attributes->getNamedItemNS($columnData['attributeNS'],
-                        $columnData['attribute'])->nodeValue;
+                    $columnData['attribute'])->nodeValue;
             }
 
             // Otherwise directly take the node's value
@@ -816,7 +870,7 @@ class Importer
             // Get existing mappings and apply them to records
             if (isset($columnData['external'][$this->columnIndex]['mapping'])) {
                 $records = $this->mapData($records, $columnName,
-                        $columnData['external'][$this->columnIndex]['mapping']);
+                    $columnData['external'][$this->columnIndex]['mapping']);
 
                 // Otherwise apply constant value, if defined
             } elseif (isset($columnData['external'][$this->columnIndex]['value'])) {
@@ -840,13 +894,13 @@ class Importer
                 if ($userObject === false) {
                     if ($this->extensionConfiguration['debug'] || TYPO3_DLOG) {
                         GeneralUtility::devLog(
-                                sprintf(
-                                        $GLOBALS['LANG']->getLL('invalid_userfunc'),
-                                        $columnData['external'][$this->columnIndex]['userFunc']['class']
-                                ),
-                                $this->extensionKey,
-                                2,
-                                $columnData['external'][$this->columnIndex]['userFunc']
+                            sprintf(
+                                $GLOBALS['LANG']->getLL('invalid_userfunc'),
+                                $columnData['external'][$this->columnIndex]['userFunc']['class']
+                            ),
+                            $this->extensionKey,
+                            2,
+                            $columnData['external'][$this->columnIndex]['userFunc']
                         );
                     }
 
@@ -895,9 +949,9 @@ class Importer
                     // The external field may contain multiple values
                     if (!empty($mappingInformation['multipleValuesSeparator'])) {
                         $singleExternalValues = GeneralUtility::trimExplode(
-                                $mappingInformation['multipleValuesSeparator'],
-                                $externalValue,
-                                true
+                            $mappingInformation['multipleValuesSeparator'],
+                            $externalValue,
+                            true
                         );
 
                         // The external field is expected to contain a single value
@@ -949,9 +1003,9 @@ class Importer
                     // The external field may contain multiple values
                     if (!empty($mappingInformation['multipleValuesSeparator'])) {
                         $singleExternalValues = GeneralUtility::trimExplode(
-                                $mappingInformation['multipleValuesSeparator'],
-                                $externalValue,
-                                true
+                            $mappingInformation['multipleValuesSeparator'],
+                            $externalValue,
+                            true
                         );
 
                         // The external field is expected to contain a single value
@@ -964,7 +1018,7 @@ class Importer
                         // Try matching the value. If matching fails, unset it.
                         try {
                             $mappedExternalValues[] = $this->matchSingleField($singleValue, $mappingInformation,
-                                    $mappings);
+                                $mappings);
                         } catch (\Exception $e) {
                             // Ignore unmapped values
                         }
@@ -1054,7 +1108,7 @@ class Importer
             $continueImport = $numRecords >= $this->externalConfiguration['minimumRecords'];
             if (!$continueImport) {
                 $this->addMessage(sprintf($GLOBALS['LANG']->getLL('notEnoughRecords'), $numRecords,
-                        $this->externalConfiguration['minimumRecords']));
+                    $this->externalConfiguration['minimumRecords']));
             }
         }
 
@@ -1138,10 +1192,14 @@ class Importer
             // Check if some fields are excluded from some operations
             // and add them to the relevant list
             if (isset($columnData['external'][$this->columnIndex]['disabledOperations'])) {
-                if (GeneralUtility::inList($columnData['external'][$this->columnIndex]['disabledOperations'], 'insert')) {
+                if (GeneralUtility::inList($columnData['external'][$this->columnIndex]['disabledOperations'],
+                    'insert')
+                ) {
                     $fieldsExcludedFromInserts[] = $columnName;
                 }
-                if (GeneralUtility::inList($columnData['external'][$this->columnIndex]['disabledOperations'], 'update')) {
+                if (GeneralUtility::inList($columnData['external'][$this->columnIndex]['disabledOperations'],
+                    'update')
+                ) {
                     $fieldsExcludedFromUpdates[] = $columnName;
                 }
             }
@@ -1173,9 +1231,9 @@ class Importer
                             // Try matching the value. If matching fails, unset it.
                             try {
                                 $foreignValue = $this->matchSingleField(
-                                        $theRecord[$columnName],
-                                        $mmData['mapping'],
-                                        $foreignMappings
+                                    $theRecord[$columnName],
+                                    $mmData['mapping'],
+                                    $foreignMappings
                                 );
                             } catch (\Exception $e) {
                                 // Nothing to do, foreign value must stay "unset"
@@ -1211,16 +1269,16 @@ class Importer
                             $mappings[$columnName][$externalUid][$sortingValue] = $foreignValue;
                             if ($additionalFields || $mmData['multiple']) {
                                 $fullMappings[$columnName][$externalUid][$sortingValue] = array(
-                                        'value' => $foreignValue,
-                                        'additional_fields' => $fields
+                                    'value' => $foreignValue,
+                                    'additional_fields' => $fields
                                 );
                             }
                         } else {
                             $mappings[$columnName][$externalUid][] = $foreignValue;
                             if ($additionalFields || $mmData['multiple']) {
                                 $fullMappings[$columnName][$externalUid][] = array(
-                                        'value' => $foreignValue,
-                                        'additional_fields' => $fields
+                                    'value' => $foreignValue,
+                                    'additional_fields' => $fields
                                 );
                             }
                         }
@@ -1411,11 +1469,11 @@ class Importer
         // Mark as deleted records with existing uids that were not in the import data anymore
         // (if automatic delete is activated)
         if (
-                GeneralUtility::inList($this->externalConfiguration['disabledOperations'], 'delete')
-                || (
-                        isset($this->externalConfiguration['deleteNonSynchedRecords'])
-                        && $this->externalConfiguration['deleteNonSynchedRecords'] === false
-                )
+            GeneralUtility::inList($this->externalConfiguration['disabledOperations'], 'delete')
+            || (
+                isset($this->externalConfiguration['deleteNonSynchedRecords'])
+                && $this->externalConfiguration['deleteNonSynchedRecords'] === false
+            )
         ) {
             $deletes = 0;
         } else {
@@ -1458,7 +1516,7 @@ class Importer
             // If yes, get these messages from the sys_log table
             $where = "tablename = '" . $this->table . "' AND error > '0'";
             $res = $GLOBALS['TYPO3_DB']->exec_SELECTquery('*', 'sys_log', $where, '', 'tstamp DESC',
-                    count($tce->errorLog));
+                count($tce->errorLog));
             if ($res) {
                 while ($row = $GLOBALS['TYPO3_DB']->sql_fetch_assoc($res)) {
                     // Check if there's a label for the message
@@ -1473,7 +1531,7 @@ class Importer
                     if (!empty($row['log_data'])) {
                         $data = unserialize($row['log_data']);
                         $message = sprintf($label, htmlspecialchars($data[0]), htmlspecialchars($data[1]),
-                                htmlspecialchars($data[2]), htmlspecialchars($data[3]), htmlspecialchars($data[4]));
+                            htmlspecialchars($data[2]), htmlspecialchars($data[3]), htmlspecialchars($data[4]));
                     }
                     $this->messages[FlashMessage::ERROR][] = $message;
                     if ($this->extensionConfiguration['debug'] || TYPO3_DLOG) {
@@ -1528,7 +1586,7 @@ class Importer
             }
             if (isset($this->tableTCA['columns'][$columnName]['config']['MM_match_fields']) && is_array($this->tableTCA['columns'][$columnName]['config']['MM_match_fields'])) {
                 $mmAdditionalFields = array_merge($mmAdditionalFields,
-                        $this->tableTCA['columns'][$columnName]['config']['MM_match_fields']);
+                    $this->tableTCA['columns'][$columnName]['config']['MM_match_fields']);
             }
             // Assemble a condition with all these fields
             foreach ($mmAdditionalFields as $column => $value) {
@@ -1550,8 +1608,8 @@ class Importer
                     $referenceField = 'uid_local';
                 }
                 $GLOBALS['TYPO3_DB']->exec_DELETEquery(
-                        $mmTable,
-                        $referenceField . ' = ' . (int)$uid . $additionalWhere
+                    $mmTable,
+                    $referenceField . ' = ' . (int)$uid . $additionalWhere
                 );
 
                 // Recreate all MM-relations with additional fields, if any
@@ -1576,8 +1634,8 @@ class Importer
                         $fields[$column] = $value;
                     }
                     $GLOBALS['TYPO3_DB']->exec_INSERTquery(
-                            $mmTable,
-                            $fields
+                        $mmTable,
+                        $fields
                     );
                 }
             }
@@ -1594,9 +1652,9 @@ class Importer
         if (!empty($this->externalConfiguration['clearCache'])) {
             // Extract the list of caches to clear
             $caches = GeneralUtility::trimExplode(
-                    ',',
-                    $this->externalConfiguration['clearCache'],
-                    true
+                ',',
+                $this->externalConfiguration['clearCache'],
+                true
             );
             // Use DataHandler to clear the designated caches
             if (count($caches) > 0) {
@@ -1631,9 +1689,9 @@ class Importer
         $where .= BackendUtility::deleteClause($this->table);
         $referenceUidField = $this->externalConfiguration['referenceUid'];
         $res = $GLOBALS['TYPO3_DB']->exec_SELECTquery(
-                $referenceUidField . ',uid',
-                $this->table,
-                $where
+            $referenceUidField . ',uid',
+            $this->table,
+            $where
         );
         if ($res) {
             while ($row = $GLOBALS['TYPO3_DB']->sql_fetch_assoc($res)) {
@@ -1886,7 +1944,7 @@ class Importer
             $mailObject = GeneralUtility::makeInstance(MailMessage::class);
             try {
                 $sender = array(
-                        $senderMail => $senderName
+                    $senderMail => $senderName
                 );
                 $mailObject->setFrom($sender);
                 $mailObject->setReplyTo($sender);
@@ -1908,13 +1966,109 @@ class Importer
                 $comment .= ' (' . $message . ')';
             }
             $GLOBALS['BE_USER']->writelog(
-                    4,
-                    0,
-                    1,
-                    $this->extensionKey,
-                    $comment,
-                    array()
+                4,
+                0,
+                1,
+                $this->extensionKey,
+                $comment,
+                array()
             );
         }
     }
+
+    /**
+     * @param       string $table : name of the table to get the connector for
+     * @param       integer $index : index of the conector configuration to use
+     * @return NULL|tx_svconnector_base
+     */
+    public function getConnector($table, $index)
+    {
+        $connector = null;
+
+        if ($GLOBALS['BE_USER']->check('tables_modify', $table)) {
+            $this->initTCAData($table, $index);
+
+            // Instantiate specific connector service
+            if (empty($this->externalConfiguration['connector'])) {
+                $this->addMessage(
+                    $GLOBALS['LANG']->getLL('no_connector')
+                );
+            } else {
+                $services = ExtensionManagementUtility::findService('connector',
+                    $this->externalConfiguration['connector']);
+
+                // The service is not available
+                if ($services === false) {
+                    $this->addMessage(
+                        $GLOBALS['LANG']->getLL('no_service')
+                    );
+                } else {
+                    /** @var $connector tx_svconnector_base */
+                    $connector = GeneralUtility::makeInstanceService('connector',
+                        $this->externalConfiguration['connector']);
+                }
+            }
+        }
+        return $connector;
+    }
+
+    /**
+     * @param string $table
+     * @param int $index
+     */
+    public function getProgressForTable($table, $index)
+    {
+        /** @var $configurationRepository ConfigurationRepository */
+        $configurationRepository = GeneralUtility::makeInstance(ConfigurationRepository::class);
+        $result = $configurationRepository->getProgress($table, $index);
+        return $result;
+    }
+
+    /**
+     * @return bool|float FALSE if there are no cycle tables within the set of configured external imports, float is the overall percentage if the progress of all import tasks
+     */
+    public function getProgressForAllTables()
+    {
+        /** @var $configurationRepository ConfigurationRepository */
+        $configurationRepository = GeneralUtility::makeInstance(ConfigurationRepository::class);
+
+        $result = false;
+
+        // Look in the TCA for tables with an "external" control section and a "connector"
+        // Tables without connectors cannot be synchronised
+        $externalTables = array();
+        foreach ($GLOBALS['TCA'] as $tableName => $sections) {
+            if (isset($sections['ctrl']['external'])) {
+                foreach ($sections['ctrl']['external'] as $index => $externalConfig) {
+                    if (!empty($externalConfig['connector'])) {
+                        // Default priority if not defined, set to very low
+                        $priority = 1000;
+                        if (isset($externalConfig['priority'])) {
+                            $priority = $externalConfig['priority'];
+                        }
+                        if (!isset($externalTables[$priority])) {
+                            $externalTables[$priority] = array();
+                        }
+                        $externalTables[$priority][] = array('table' => $tableName, 'index' => $index);
+                    }
+                }
+            }
+        }
+        $temp = 0;
+        $tablesWithCycle = 0;
+        foreach ($externalTables as $tables) {
+            foreach ($tables as $tableData) {
+                $progressForTable = $configurationRepository->getProgress($tableData['table'], $tableData['index']);
+                if ($progressForTable !== false) {
+                    $temp = $temp + $progressForTable;
+                    $tablesWithCycle++;
+                }
+            }
+        }
+        if ($tablesWithCycle > 0) {
+            $result = $temp / $tablesWithCycle;
+        }
+        return $result;
+    }
+
 }

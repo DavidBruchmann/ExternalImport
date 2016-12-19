@@ -185,7 +185,10 @@ class SchedulerRepository implements SingletonInterface
                 'group' => $taskObject->getTaskGroup(),
                 // Format date and time as needed for form input
                 'startTimestamp' => $startTimestamp,
-                'startDate' => ($startTimestamp === 0) ? '' : date($editFormat, $taskObject->getExecution()->getStart())
+                'startDate' => ($startTimestamp === 0) ? '' : date($editFormat, $taskObject->getExecution()->getStart()),
+                'nextexecution_tstamp' => $taskObject->getExecutionTime(),
+                'start_time' => date('H:i', $taskObject->getExecution()->getStart()),
+                'is_running' => $taskObject->isExecutionRunning()
         );
         return $taskInformation;
     }

@@ -13,3 +13,4 @@ $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['scheduler']['tasks'][\Cobweb\External
 
 // Register Scheduler tasks update script
 $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['ext/install']['update']['external_import_tasks'] = \Cobweb\ExternalImport\Updates\SchedulerTasksWizard::class;
+$GLOBALS['TYPO3_CONF_VARS']['EXTCONF'][$_EXTKEY]['processParameters'][] = \Cobweb\ExternalImport\Hooks\CycleHook::class;
